@@ -1,4 +1,20 @@
-// Semantic analysis checks if the variable is declared before and if it's data type is as expected.
+/* Semantic analysis checks 2 things. if the variable is declared before and if it's data type is as expected.
+1. check ID declaration.
+	in declaration: 
+	symbol_table.count(*$ID_index) > 0 
+	declared => print the line number and throw re-declared error, 
+	undeclared => add into the symbol table: symbol_table[*$ID_index] = var_data( line_number, ID_type );
+2. check ID type matches.
+	in expression|statement: 
+	(symbol_table.count(*$1) == 0)
+	undeclared => throws undeclared error
+	(symbol_table[*$1].decl_type != boolean) 
+	unmatching type => throw type error, here the boolean is declared in the enum inside semantics.h file.
+3. define the return type only inside expression:
+	for example: expression T_ADD expression
+	return type: $$ = new type(integer);
+	for example: T_ID
+	return type: $$ = new type(symbol_table[*$1].decl_type); --the id type can be anything */
 
 // ++ and -- operators (both of them is working only on integer values)
 expression:
@@ -225,20 +241,3 @@ T_GOTO T_ID
 	delete $2;
 }
 // enum type = {goto_label} in semantics.h
-/* Conclusion: semantic analyzer checks 2 things.
-1. check ID declaration.
-in declaration: 
-symbol_table.count(*$ID_index) > 0 
-declared => print the line number and throw re-declared error, 
-undeclared => add into the symbol table: symbol_table[*$ID_index] = var_data( line_number, ID_type );
-2. check ID type matches.
-in expression|statement: 
-(symbol_table.count(*$1) == 0)
-undeclared => throws undeclared error
-(symbol_table[*$1].decl_type != boolean) 
-unmatching type => throw type error, here the boolean is declared in the enum inside semantics.h file.
-3. define the return type only inside expression:
-for example: expression T_ADD expression
-return type: $$ = new type(integer);
-for example: T_ID
-return type: $$ = new type(symbol_table[*$1].decl_type); --the id type can be anything
