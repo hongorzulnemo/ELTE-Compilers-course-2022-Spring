@@ -28,6 +28,7 @@ T_ID T_INC
   /* semantic ends */ 
   /* code generation starts */ 
   $$ = new expression_descriptor(integer, "mov eax, ["+symbol_table[*$1].label+"]\n" +
+                                          // assembly: mov destination, source
                                           // copy address into eax
                                           "add eax, 1\n" +
                                           // increment eax by 1
@@ -103,3 +104,202 @@ T_FOR T_ID T_ASSIGN expression T_TO expression T_DO statements T_DONE
     delete $6;
     delete $8;
 }
+
+// task. goto - Hint for code generation: a label declaration in While 
+// is a label in the assembly, while to goto should be compiled to a 
+// "jmp <label>" instruction
+statement:
+T_ID T_COLON
+{ 
+    /* semantic starts */
+    if( symbol_table.count(*$1) > 0 )
+    {
+        std::stringstream ss;
+        ss << "Re-declared identifier: " << *$1 << ".\n"
+        << "Line of previous declaration: " << symbol_table[*$1].decl_row << std::endl;
+        error( ss.str().c_str() );
+    }
+    /* semantic check ends */
+    /* code generation start because of new_label(0) */
+    symbol_table[*$1] = var_data( d_loc__.first_line, goto_label, new_label() );
+    $$ = new std::string(symbol_table[*$1].label + ":\n");
+    /* code generation end */
+    delete $1;
+}
+|
+T_GOTO T_ID T_SEMICOLON
+{
+    if( symbol_table.count(*$2) == 0 || symbol_table[*$2].decl_type != goto_label)
+    {
+        std::stringstream ss;
+        ss << "Undeclared label: " << *$2 << std::endl;
+        error( ss.str().c_str() );
+    }
+    /* code gen start */
+    $$ = new std::string("jmp " + symbol_table[*$2].label + "\n");
+    /* code gen end */
+    delete $2;
+}
+
+
+// task. Power operator: <exp1> ** <exp2>
+expression T_POW expression
+{
+  if($1->expr_type != integer || $3->expr_type != integer)
+  {
+     std::stringstream ss;
+     ss << d_loc__.first_line << ": Type error." << std::endl;
+     error( ss.str().c_str() );
+  }
+  std::string zero = new_label();
+  std::string loop = new_label();
+  std::string end = new_label();
+  $$ = new expression_descriptor(integer, "" +
+    $3->expr_code +     // eval exp2 into eax
+    "mov ebx, eax\n" +  // ebx = exp2
+    $1->expr_code +     // eval exp1 into eax
+    "mov ecx, eax\n"    // ecx = exp1
+
+    "cmp ebx, 0\n" +            // if exp2 = 0
+    "je near " + zero + "\n" +  // x^0 = 1
+    "cmp ebx, 1\n" +            // if exp2 = 1
+    "je near " + end + "\n" +   // x^1 = x
+    "jmp near " + loop + "\n" + // pow > 1
+
+    zero + ":\n" +              // 
+    "mov eax, 1\n" +            // eax = 1
+    "jmp near " + end + "\n" +  // end the loop
+
+    loop + ":\n" +              // start of the loop
+    "mul ecx\n" +               // eax *= ecx
+    "dec ebx\n" +               // ebx --
+    "cmp ebx, 1\n" +            // ebx == 1
+    "ja near " + loop + "\n" +  // if ebx(exp2) > 1 then start the loop again
+
+    end + ":\n");
+  delete $1;
+  delete $3;
+}
+
+
+// task. string - Hint for code generation: a string can not be read nor printed out, 
+// the only supported operations are the assignment,  length calculation and 
+// two binary operators (+, *). Based on this, it is sufficient to only store 
+// one numeric value (the length of the string) instead of the actual string
+declaration:
+T_STRING T_ID T_SEMICOLON
+{
+    if( symbol_table.count(*$2) > 0 )
+    {
+        std::stringstream ss;
+        ss << "Re-declared variable: " << *$2 << ".\n"
+        << "Line of previous declaration: " << symbol_table[*$2].decl_row << std::endl;
+        error( ss.str().c_str() );
+    }
+    symbol_table[*$2] = var_data( d_loc__.first_line, string_type, new_label() );
+    delete $2;
+}
+expression:
+T_STRING_LIT
+{
+    std::string length = std::string(std::to_string($1->length()-2));
+    $$ = new expression_descriptor(string_type, "mov eax, " + length + " \n");
+    delete $1;
+}
+expression T_ADD expression
+    {
+        if($1->expr_type == boolean || $1->expr_type != $3->expr_type)
+        {
+           std::stringstream ss;
+           ss << d_loc__.first_line << ": Type error." << std::endl;
+           error( ss.str().c_str() );
+        }
+        if ($1->expr_type == integer && $3->expr_type == integer) {
+            $$ = new expression_descriptor(integer, "" +
+                    $3->expr_code +
+                    "push eax\n" +
+                    $1->expr_code +
+                    "pop ebx\n" +
+                    "add eax, ebx\n");
+        }
+        
+        /* ----- Solution ----- */
+
+        if ($1->expr_type == string_type && $3->expr_type == string_type) {
+            $$ = new expression_descriptor(string_type, "" +
+                    $3->expr_code +
+                    "push eax\n" +
+                    $1->expr_code +
+                    "pop ebx\n" +
+                    "add eax, ebx\n");
+        }
+
+        /* ----- Solution END ----- */
+
+        delete $1;
+        delete $3;
+    }
+  |
+  expression T_MUL expression
+    {
+        if($1->expr_type == boolean || $3->expr_type != integer)
+        {
+           std::stringstream ss;
+           ss << d_loc__.first_line << ": Type error." << std::endl;
+           error( ss.str().c_str() );
+        }
+        if($1->expr_type == integer) {
+            $$ = new expression_descriptor(integer, "" +
+                    $3->expr_code +
+                    "push eax\n" +
+                    $1->expr_code +
+                    "pop ebx\n" +
+                    "mul ebx\n");
+        }
+
+        /* ----- Solution ----- */
+
+        if($1->expr_type == string_type) {
+            $$ = new expression_descriptor(string_type, "" +
+                    $3->expr_code +
+                    "push eax\n" +
+                    $1->expr_code +
+                    "pop ebx\n" +
+                    "mul ebx\n");
+        }
+
+        /* ----- Solution END ----- */
+
+        delete $1;
+        delete $3;
+    }
+  | 
+  expression T_EQ expression
+    {
+
+        /* ----- Solution ----- */
+
+        if($1->expr_type != $3->expr_type || $1->expr_type == string_type)
+        {
+           std::stringstream ss;
+           ss << d_loc__.first_line << ": Type error." << std::endl;
+           error( ss.str().c_str() );
+        }
+
+        /*
+        * Added check for string_type, since we should not be able to check if
+        * strings are equal.
+        */
+
+        /* ----- Solution END ----- */
+
+        $$ = new expression_descriptor(boolean, "" +
+                $3->expr_code +
+                "push eax\n" +
+                $1->expr_code +
+                "pop ebx\n" +
+                "cmp eax, ebx\n" +
+                "sete al\n");
+        delete $1;
+        delete $3;
+    }
