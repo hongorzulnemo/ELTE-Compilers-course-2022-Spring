@@ -147,5 +147,48 @@ T_LENGTH T_OPEN expression T_CLOSE
     delete $3;   
 }
 // the + operator should work on two strings yielding a string (concatenation)
-// the * operator should work if its first argument is a string and the second is an integer, resulting in a string (multiplication of the string)
-// other operators are not defined for the string type
+expression:
+expression T_ADD expression
+{
+	if(*$1 == boolean || *$3 == boolean || *$1 != *$3)
+	{
+	std::stringstream ss;
+	ss << d_loc__.first_line << ": Type error." << std::endl;
+	error( ss.str().c_str() );
+	}
+	if(*$1 == integer)
+	{
+	    $$ = new type(integer);
+	}
+	else
+	{
+	    $$ = new type(string);
+	}
+	delete $1;
+	delete $3;
+}
+// the * operator should work if its first argument is a string and the second is an integer, 
+// resulting in a string (multiplication of the string)
+expression:
+expression T_MUL expression
+{
+if(*$1 == boolean || *$3 != integer)
+{
+   std::stringstream ss;
+   ss << d_loc__.first_line << ": Type error." << std::endl;
+   error( ss.str().c_str() );
+}
+if(*$1 == integer)
+{
+	    $$ = new type(integer);
+}
+else
+{
+    $$ = new type(string);
+}
+delete $1;
+delete $3;
+
+
+
+
