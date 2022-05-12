@@ -186,6 +186,12 @@ expression T_POW expression
 // the only supported operations are the assignment,  length calculation and 
 // two binary operators (+, *). Based on this, it is sufficient to only store 
 // one numeric value (the length of the string) instead of the actual string
+program:
+if(v.second.decl_type == integer || v.second.decl_type == string_type)
+    std::cout << v.second.label << ": resd 1" << std::endl;
+    // Added check for string type, since it stores a numerical value,
+    // it behaves the same as an integer here.
+    
 declaration:
 T_STRING T_ID T_SEMICOLON
 {
@@ -199,13 +205,28 @@ T_STRING T_ID T_SEMICOLON
     symbol_table[*$2] = var_data( d_loc__.first_line, string_type, new_label() );
     delete $2;
 }
+
+assignment:
+T_ID T_ASSIGN expression T_SEMICOLON
+{
+  if($3->expr_type == string_type)
+      $$ = new std::string("" +
+                    $3->expr_code + 
+                    // eval expr into eax
+                    "mov [" + symbol_table[*$1].label + "], eax\n");
+                    // assign eax into id, in other words assign expr value into id
+}
+
 expression:
 T_STRING_LIT
 {
     std::string length = std::string(std::to_string($1->length()-2));
+    // get the length of the string instead of actual string
     $$ = new expression_descriptor(string_type, "mov eax, " + length + " \n");
+    // save the length into eax register
     delete $1;
 }
+|
 expression T_ADD expression
     {
         if($1->expr_type == boolean || $1->expr_type != $3->expr_type)
@@ -301,5 +322,125 @@ expression T_ADD expression
                 "cmp eax, ebx\n" +
                 "sete al\n");
         delete $1;
+        delete $3;
+    }
+|
+T_LENGTH T_OPEN expression T_CLOSE
+{
+    if($3->expr_type != string_type)
+    {
+       std::stringstream ss;
+       ss << d_loc__.first_line << ": Type error." << std::endl;
+       error( ss.str().c_str() );
+    }
+    $$ = new expression_descriptor(integer, "" + $3->expr_code);
+    // save the value into eax
+    delete $3;
+}
+
+
+// task. time: Hint for code generation: both the minutes and the hours should be
+// extracted from the time literal, and store them like hours*28 + minutes. This 
+// way the hours can be reached by ah register while the minutes by the al register.
+program:
+if(v.second.decl_type == time_type)
+  std::cout << v.second.label << ": resw 1" << std::endl;
+
+declaration:
+T_ID 
+{
+  if(symbol_table[*$1].decl_type == time_type)
+  {
+      $$ = new expression_descriptor(symbol_table[*$1].decl_type,
+              "mov ax, [" + symbol_table[*$1].label + "]\n");
+  }
+}
+|
+T_TIME T_ID T_SEMICOLON
+{
+    if( symbol_table.count(*$2) > 0 )
+    {
+        std::stringstream ss;
+        ss << "Re-declared variable: " << *$2 << ".\n"
+        << "Line of previous declaration: " << symbol_table[*$2].decl_row << std::endl;
+        error( ss.str().c_str() );
+    }
+    symbol_table[*$2] = var_data( d_loc__.first_line, time_type, new_label() );
+    delete $2;
+}
+assignment:
+T_ID T_ASSIGN expression T_SEMICOLON
+{
+  if($3->expr_type == time_type)
+  $$ = new std::string("" +
+        $3->expr_code +
+        "mov [" + symbol_table[*$1].label + "], ax\n");
+}
+expression:
+T_TIME_LIT
+{
+    std::string hour = $1->substr(0,2);
+    std::string minute = $1->substr(3);
+    $$ = new expression_descriptor(time_type, std::string("") + 
+            "mov ah, " + hour + "\n" +
+            "mov al, " + minute + "\n");
+    delete $1;
+}
+expression T_EQ expression
+{
+    /* ----- Solution ----- */
+    if($1->expr_type != $3->expr_type || $1->expr_type == time_type)
+    {
+       std::stringstream ss;
+       ss << d_loc__.first_line << ": Type error." << std::endl;
+       error( ss.str().c_str() );
+    }
+
+    /*
+    * Added check for time_type, since we should not be able to check if
+    * times are equal.
+    */
+
+    /* ----- Solution END ----- */
+
+    $$ = new expression_descriptor(boolean, "" +
+            $3->expr_code +
+            "push eax\n" +
+            $1->expr_code +
+            "pop ebx\n" +
+            "cmp eax, ebx\n" +
+            "sete al\n");
+    delete $1;
+    delete $3;
+}
+|
+T_HOUR T_OPEN expression T_CLOSE
+    {
+        if($3->expr_type != time_type)
+        {
+           std::stringstream ss;
+           ss << d_loc__.first_line << ": Type error." << std::endl;
+           error( ss.str().c_str() );
+        }
+        $$ = new expression_descriptor(integer, std::string("") +
+                "xor eax, eax\n" +
+                $3->expr_code +
+                "mov al, ah\n" +
+                "xor ah, ah\n");
+        delete $3;
+    }
+|
+    T_MINUTE T_OPEN expression T_CLOSE
+    {
+        if($3->expr_type != time_type)
+        {
+           std::stringstream ss;
+           ss << d_loc__.first_line << ": Type error." << std::endl;
+           error( ss.str().c_str() );
+        }
+        $$ = new expression_descriptor(integer, std::string("") + 
+                "xor eax, eax\n" +
+                $3->expr_code +
+                "xor ah, ah\n");
         delete $3;
     }
