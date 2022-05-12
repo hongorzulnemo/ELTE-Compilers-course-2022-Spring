@@ -190,5 +190,55 @@ delete $1;
 delete $3;
 
 
-
-
+// goto, let us introduce the goto <label> and the <label>: statements 
+// jumps are only possible backward, so first we have to have a 
+// <label>: then after somewhere a goto <label> statement - let's check this!
+T_ID T_COLON
+{
+	if( symbol_table.count(*$1) > 0 )
+	{
+	    std::stringstream ss;
+	    ss << "Re-declared identifier: " << *$1 << ".\n"
+	    << "Line of previous declaration: " << symbol_table[*$1].decl_row << std::endl;
+	    error( ss.str().c_str() );
+	}
+	symbol_table[*$1] = var_data( d_loc__.first_line, goto_label );
+	delete $1;
+}
+// more precisely, check if a goto is jumping to an already defined 
+// label (OK), or not (a semantic error)
+statement:
+T_GOTO T_ID
+{
+	if( symbol_table.count(*$2) == 0 )
+	{
+		std::stringstream ss;
+		ss << "Undeclared variable: " << *$2 << std::endl;
+		error( ss.str().c_str() );
+	}
+	if (symbol_table[*$2].decl_type != goto_label)
+	{
+		std::stringstream ss;
+		ss << d_loc__.first_line << ": Type error." << std::endl;
+		error( ss.str().c_str() );
+	}
+	delete $2;
+}
+// enum type = {goto_label} in semantics.h
+/* Conclusion: semantic analyzer checks 2 things.
+1. check ID declaration.
+in declaration: 
+symbol_table.count(*$ID_index) > 0 
+declared => print the line number and throw re-declared error, 
+undeclared => add into the symbol table: symbol_table[*$ID_index] = var_data( line_number, ID_type );
+2. check ID type matches.
+in expression|statement: 
+(symbol_table.count(*$1) == 0)
+undeclared => throws undeclared error
+(symbol_table[*$1].decl_type != boolean) 
+unmatching type => throw type error, here the boolean is declared in the enum inside semantics.h file.
+3. define the return type only inside expression:
+for example: expression T_ADD expression
+return type: $$ = new type(integer);
+for example: T_ID
+return type: $$ = new type(symbol_table[*$1].decl_type); --the id type can be anything
