@@ -16,7 +16,7 @@
 	for example: T_ID
 	return type: $$ = new type(symbol_table[*$1].decl_type); --the id type can be anything */
 
-// ++ and -- operators (both of them is working only on integer values)
+// task. ++ and -- operators (both of them is working only on integer values)
 expression:
 T_ID T_INC
 { 
@@ -41,7 +41,7 @@ T_ID T_INC
 }
 
 
-// for loop (with a syntax like this: for <var> := <expr> to <expr> do <stmts> done)
+// task. for loop (with a syntax like this: for <var> := <expr> to <expr> do <stmts> done)
 loop:
 T_FOR T_ID T_ASSIGN expression T_TO expression T_DO statements T_DONE
 {
@@ -66,7 +66,7 @@ T_FOR T_ID T_ASSIGN expression T_TO expression T_DO statements T_DONE
 }
 
 
-// time type (you can start off with this implementation - the lexical&syntax parts are done already)
+// task. time type (you can start off with this implementation - the lexical&syntax parts are done already)
 declaration:
 T_TIME T_ID T_SEMICOLON
 {
@@ -83,14 +83,14 @@ T_TIME T_ID T_SEMICOLON
   delete $2;
 }
 
-// extend the type-system with the new 'time_type' type
+// task. extend the type-system with the new 'time_type' type
 expression:
 T_TIME_LIT 
 {
     $$ = new type(time_type);
 }
 
-// the hour(...) and minute(...) functions can only accept a time typed expression
+// task. the hour(...) and minute(...) functions can only accept a time typed expression
 T_HOUR T_OPEN expression T_CLOSE
     {
         if(*$3 != time_type)
@@ -115,7 +115,7 @@ T_MINUTE T_OPEN expression T_CLOSE
     delete $3;
 }
 
-// other binary operators behavior is not defined for the time type
+// task. other binary operators behavior is not defined for the time type
 expression T_EQ expression
 {
     if(*$1 != *$3 || *$1==time_type)
@@ -130,7 +130,7 @@ expression T_EQ expression
 }
 
 
-// string type (you can start off with this implementation - the lexical&syntax parts are done already)
+// task. string type (you can start off with this implementation - the lexical&syntax parts are done already)
  T_STRING T_ID T_SEMICOLON
  {
     if( symbol_table.count(*$2) > 0 )
@@ -143,14 +143,14 @@ expression T_EQ expression
 		symbol_table[*$2] = var_data( d_loc__.first_line, string);
     delete $2;
  }
-// extend the type-system with the new 'string_type' type
+// task. extend the type-system with the new 'string_type' type
 expression:
 T_STRING_LIT
 {
     $$ = new type(string);
 }
 
-// the length(...) function can only accept string typed expression
+// task. the length(...) function can only accept string typed expression
 T_LENGTH T_OPEN expression T_CLOSE
 {
     if(*$3 != string)
@@ -162,7 +162,7 @@ T_LENGTH T_OPEN expression T_CLOSE
     $$ = new type(integer);
     delete $3;   
 }
-// the + operator should work on two strings yielding a string (concatenation)
+// task. the + operator should work on two strings yielding a string (concatenation)
 expression:
 expression T_ADD expression
 {
@@ -183,8 +183,8 @@ expression T_ADD expression
 	delete $1;
 	delete $3;
 }
-// the * operator should work if its first argument is a string and the second is an integer, 
-// resulting in a string (multiplication of the string)
+// task. the * operator should work if its first argument is a string and the second is an integer, 
+// task. resulting in a string (multiplication of the string)
 expression:
 expression T_MUL expression
 {
@@ -206,9 +206,9 @@ delete $1;
 delete $3;
 
 
-// goto, let us introduce the goto <label> and the <label>: statements 
-// jumps are only possible backward, so first we have to have a 
-// <label>: then after somewhere a goto <label> statement - let's check this!
+// task. goto, let us introduce the goto <label> and the <label>: statements 
+// task. jumps are only possible backward, so first we have to have a 
+// task. <label>: then after somewhere a goto <label> statement - let's check this!
 T_ID T_COLON
 {
 	if( symbol_table.count(*$1) > 0 )
@@ -221,8 +221,8 @@ T_ID T_COLON
 	symbol_table[*$1] = var_data( d_loc__.first_line, goto_label );
 	delete $1;
 }
-// more precisely, check if a goto is jumping to an already defined 
-// label (OK), or not (a semantic error)
+// task. more precisely, check if a goto is jumping to an already defined 
+// task. label (OK), or not (a semantic error)
 statement:
 T_GOTO T_ID
 {
@@ -240,4 +240,4 @@ T_GOTO T_ID
 	}
 	delete $2;
 }
-// enum type = {goto_label} in semantics.h
+// task. enum type = {goto_label} in semantics.h
